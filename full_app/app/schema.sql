@@ -27,6 +27,7 @@ drop table if exists backpage_logger;
      text_headline text,
      investigation text,
      link text,
+     case_number text,
      timestamp text,
      photos text,
      language text,

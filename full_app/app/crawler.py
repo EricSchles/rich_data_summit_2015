@@ -99,31 +99,7 @@ class Scraper:
         }
         return places[place]
         
-    #need to add TfIdf
-    #need to merge investigate and scrape methods or split this up further in someway, but currently this is bad and confusing
-    def investigate(self,case_number):
-        data = self.scrape(self.base_urls)
-        training_data = [(elem, "trafficking") for elem in BackpageLogger.query.filter_by(is_trafficking=True).all()] 
-        training_data = [(elem, "not trafficking") for elem in BackpageLogger.query.filter_by(is_trafficking=False).all()]
-        trafficking_numbers = [elem.phone_number for elem in BackpageLogger.query.filter_by(is_trafficking=True).all()]
-        cls = []
-        cls.append(algorithms.svm(training_data))
-        cls.append(algorithms.decision_tree(training_data))
-        nb = algorithms.naive_bayes(training_data)
-        for datum in data:
-            if datum["phone_number"] in trafficking_numbers:
-                self.save_ads([datum],case_number)
-            if len(train) > 50: #totally a hack/rule of thumb 
-                for cl in cls:
-                    if cl.classify(algorithms.preprocess(datum["text_body"])) == "trafficking":
-                        self.save_ads([datum],case_number)
-            else:
-                if nb.classify(datum["text_body"]) == 'trafficking':
-                    self.save_ads([datum],case_number)
-        time.sleep(700) # wait ~ 12 minutes (consider changing this)
-        self.investigate() #this is an infinite loop, which I am okay with.
-
-
+        
     def parse_lat_long(self,html):
         possible_locations = html.xpath('//div[@style="padding-left:2em;"]')
         potential_lat_longs = []
@@ -170,8 +146,6 @@ class Scraper:
             values["translated_body"] = "none"
             values["translated_title"] = "none"
         return values
-    #Todos:
-    #add location data and pull that in
     
     def make_request(self,links,scraping_ads):
         responses = []
@@ -199,7 +173,7 @@ class Scraper:
                         continue
         return responses
 
-    def scrape(self,links=[],scraping_ads=True,translator=False):
+    def scrape(self,links=[],scraping_ads=True):
         responses = self.make_requests(links,scraping_ads)
         for r in responses:
             values= {}
@@ -220,9 +194,36 @@ class Scraper:
                 db.session.commit()
             data.append(values)
     
-    def save(self,data,investigation="default"):
+    #need to add TfIdf
+    #need to merge investigate and scrape methods or split this up further in someway, but currently this is bad and confusing
+    def investigate(self,case_number):
+        data = self.scrape(links=self.base_urls,scraping_ads=True)
+        training_data = [(elem, "trafficking") for elem in BackpageLogger.query.filter_by(is_trafficking=True).all()] 
+        training_data += [(elem, "not trafficking") for elem in BackpageLogger.query.filter_by(is_trafficking=False).all()]
+        trafficking_numbers = [elem.phone_number for elem in BackpageLogger.query.filter_by(is_trafficking=True).all()]
+        cls = []
+        cls.append(algorithms.svm(training_data))
+        cls.append(algorithms.decision_tree(training_data))
+        using_naive_bayes = len(training_data) > 50 #totally a hack, consider getting advice / changing this??
+        if using_naive_bayes:
+            nb = algorithms.naive_bayes(training_data)
+        for datum in data:
+            if datum["phone_number"] in trafficking_numbers:
+                self.save([datum],case_number)
+            if not using_naive_bayes:  
+                for cl in cls:
+                    if cl.classify(algorithms.preprocess(datum["text_body"])) == "trafficking":
+                        self.save([datum],case_number)
+            else:
+                if nb.classify(datum["text_body"]) == 'trafficking':
+                    self.save([datum],case_number)
+        time.sleep(700) # wait ~ 12 minutes (consider changing this)
+        self.investigate(case_number) #this is an infinite loop, which I am okay with.
+
+    def save(self,data,case_number=''):
         for values in data:
             bp_ad = BackpageLogger(
+                case_number=case_number
                 text_body=values["text_body"],
                 text_headline=values["title"],
                 investigation=investigation,

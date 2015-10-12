@@ -46,6 +46,7 @@ class BackpageLogger(db.Model):
     investigation = db.Column(db.String(1000))
     link = db.Column(db.String(10000))
     timestamp = db.Column(db.DateTime, default=datetime.datetime.now)
+    case_number = db.Column(db.String(10000))
     photos = db.Column(db.String(10000))
     language = db.Column(db.String(1000))
     polarity = db.Column(db.Float(0))
@@ -59,7 +60,7 @@ class BackpageLogger(db.Model):
     def __init__(self,text_body='',text_headline='',investigation='',
                  link='',photos='',language='',polarity=0.0,translated_body='',
                  translated_title='',subjectivity=0.0,posted_at=datetime.datetime.now(),
-                 is_trafficking=False,phone_number=''):
+                 is_trafficking=False,phone_number='',case_number=''):
         self.text_body = text_body
         self.text_headline = text_headline
         self.investigation = investigation
@@ -73,7 +74,8 @@ class BackpageLogger(db.Model):
         self.posted_at = posted_at
         self.is_trafficking = is_trafficking
         self.phone_number = phone_number
-
+        self.case_number = case_number
+ 
     def __repr__(self):
         return '<ad %r>' % self.text_headline 
 
