@@ -133,17 +133,49 @@ class Scraper:
                     potential_lat_longs.append(addr_parser.parse(possible))
         lat_longs = [elem for elem in potential_lat_longs if elem != None]
         for lat_long in lat_longs:
-            addr_parser
             addr_log = AddressLogger(lat=lat_long.latitude,long=lat_long.longitude)
             db.session.add(addr_log)
             db.session.commit()
         return lat_longs
 
+    def parse_basic_info(self,html,values):
+        values = {}
+        values["title"] = html.xpath("//div[@id='postingTitle']/a/h1")[0].text_content()
+        values["link"] = unidecode(r.url)
+        # Stub - add this with textRank - values["new_keywords"] = []
+        try:
+            values["images"] = html.xpath("//img/@src")
+        except IndexError:
+            values["images"] = "weird index error"
+        pre_decode_text = html.xpath("//div[@class='postingBody']")[0].text_content().replace("\n","").replace("\r","")  
+        values["text_body"] = pre_decode_text 
+        #this appears to be broken
+        try:
+            values["posted_at"] = html.xpath("//div[class='adInfo']")[0].text_content().replace("\n"," ").replace("\r","")
+        except IndexError:
+            values["posted_at"] = datetime.datetime.min #not given - this is just a quick fix because datetime objects are required
+        values["scraped_at"] = str(datetime.datetime.now())
+        return values
+
+    def parse_text_meta_data(self,html,values):
+        body_blob = TextBlob(values["text_body"])
+        title_blob = TextBlob(values["title"])
+        values["language"] = body_blob.detect_language() #requires the internet - makes use of google translate api
+        values["polarity"] = body_blob.polarity
+        values["subjectivity"] = body_blob.sentiment[1]
+        if values["language"] != "en" and not translator:
+            values["translated_body"] = body_blob.translate(from_lang="es")
+            values["translated_title"] = title_blob.translate(from_lang="es")
+        else:
+            values["translated_body"] = "none"
+            values["translated_title"] = "none"
+        return values
     #Todos:
     #add location data and pull that in
-    def scrape(self,links=[],ads=True,translator=False):
-        responses = []        
-        if ads:
+    
+    def make_request(self,links,scraping_ads):
+        responses = []
+        if scraping_ads:
             for link in links:
                 r = requests.get(link)
                 responses.append(r)
@@ -165,38 +197,18 @@ class Scraper:
                     except requests.exceptions.ConnectionError:
                         print "hitting connection error"
                         continue
+        return responses
+
+    def scrape(self,links=[],scraping_ads=True,translator=False):
+        responses = self.make_requests(links,scraping_ads)
         for r in responses:
             values= {}
             text = r.text
             html = lxml.html.fromstring(text)
             #getting address information from html page            
-            self.parse_lat_long(html)
-            values["title"] = html.xpath("//div[@id='postingTitle']/a/h1")[0].text_content()
-            values["link"] = unidecode(r.url)
-            # Stub - add this with textRank - values["new_keywords"] = []
-            try:
-                values["images"] = html.xpath("//img/@src")
-            except IndexError:
-                values["images"] = "weird index error"
-            pre_decode_text = html.xpath("//div[@class='postingBody']")[0].text_content().replace("\n","").replace("\r","")  
-            values["text_body"] = pre_decode_text 
-            #this appears to be broken
-            try:
-                values["posted_at"] = html.xpath("//div[class='adInfo']")[0].text_content().replace("\n"," ").replace("\r","")
-            except IndexError:
-                values["posted_at"] = datetime.datetime.min #not given - this is just a quick fix because datetime objects are required
-            values["scraped_at"] = str(datetime.datetime.now())
-            body_blob = TextBlob(values["text_body"])
-            title_blob = TextBlob(values["title"])
-            values["language"] = body_blob.detect_language() #requires the internet - makes use of google translate api
-            values["polarity"] = body_blob.polarity
-            values["subjectivity"] = body_blob.sentiment[1]
-            if values["language"] != "en" and not translator:
-                values["translated_body"] = body_blob.translate(from_lang="es")
-                values["translated_title"] = title_blob.translate(from_lang="es")
-            else:
-                values["translated_body"] = "none"
-                values["translated_title"] = "none"
+            lat_longs = self.parse_lat_long(html)
+            values.update(self.parse_basic_information(html,values))
+            values.update(self.parse_text_meta_data(html,values))
             text_body = values["text_body"]
             title = values["title"]
             values["phone_numbers"] = phone_parser.phone_number_parse(values)
@@ -209,7 +221,6 @@ class Scraper:
             data.append(values)
     
     def save(self,data,investigation="default"):
-        
         for values in data:
             bp_ad = BackpageLogger(
                 text_body=values["text_body"],
