@@ -11,7 +11,12 @@ from models import *
 from text_classify import algorithms
 from textblob import TextBlob
 from tools import * #ParsePhoneNumber, ParseAddress
-from app import db
+try:
+    from app import db
+except ImportError:
+    #app = Flask(__name__)
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db" #os.environ["DATABASE_URL"]
+    db = SQLAlchemy(app)
 
 phone_parser = ParsePhoneNumber()
 addr_parser = ParseAddress()
@@ -147,9 +152,10 @@ class Scraper:
             values["translated_title"] = "none"
         return values
     
-    def make_request(self,links,scraping_ads):
+    def make_requests(self,links,scraping_ads):
         responses = []
         if scraping_ads:
+            print 
             for link in links:
                 r = requests.get(link)
                 responses.append(r)
@@ -158,13 +164,9 @@ class Scraper:
                 r = requests.get(link)
                 text = unidecode(r.text)
                 html = lxml.html.fromstring(text)
-
-                links = html.xpath("//div[@class='cat']/a/@href")
+                links = html.xpath("//div[contains(@class,'cat')]/a/@href")
+                print links
                 for link in links:
-                    #consider changing this...since we probably won't have that many base_urls but will be scraping a bunch of times
-                    #It should really be something having to do with a counter..
-                    if len(self.base_urls) > 1 or len(self.base_urls[0]) > 3:
-                        time.sleep(random.randint(5,27))
                     try:
                         responses.append(requests.get(link))
                         print link
@@ -173,7 +175,7 @@ class Scraper:
                         continue
         return responses
 
-    def scrape(self,links=[],scraping_ads=True):
+    def scrape(self,links=[],scraping_ads=False):
         responses = self.make_requests(links,scraping_ads)
         for r in responses:
             values= {}
@@ -181,7 +183,7 @@ class Scraper:
             html = lxml.html.fromstring(text)
             #getting address information from html page            
             lat_longs = self.parse_lat_long(html)
-            values.update(self.parse_basic_information(html,values))
+            values.update(self.parse_basic_info(html,values))
             values.update(self.parse_text_meta_data(html,values))
             text_body = values["text_body"]
             title = values["title"]
@@ -223,7 +225,7 @@ class Scraper:
     def save(self,data,case_number=''):
         for values in data:
             bp_ad = BackpageLogger(
-                case_number=case_number
+                case_number=case_number,
                 text_body=values["text_body"],
                 text_headline=values["title"],
                 investigation=investigation,
