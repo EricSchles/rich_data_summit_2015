@@ -14,8 +14,6 @@ from werkzeug import secure_filename
 from glob import glob
 
 scraper = Scraper()
-investigate = Process(target=scraper.investigate)
-investigate.daemon=True
 
 @app.route("/",methods=["GET","POST"])
 def index():
@@ -145,7 +143,11 @@ def run():
 def investigator():
     if request.method == "POST":
         place = request.form.get("place")
+        case_number = request.form.get("case_number")
         scraper.update_place(place)
+        print case_number
+        investigate = Process(target=scraper.investigate,args=(case_number,))
+        investigate.daemon=True
         investigate.start()
     return redirect(url_for("webscraping"))
 

@@ -23,7 +23,8 @@ addr_parser = ParseAddress()
 #a web scraper, for local computation
 #At present, this seems to work fine
 class Scraper:
-    def __init__(self,place=None,investigation=None):
+    def __init__(self,place=None,debug=False):
+        self.debug=debug
         if place:
             self.place = place
             self.base_urls = self.map_place(place)
@@ -39,12 +40,7 @@ class Scraper:
                 "http://newyork.backpage.com/Datelines/",
                 "http://newyork.backpage.com/AdultJobs/"
             ]
-        if investigation:
-            self.investigation = investigation
-    
-    def update_investigation(self,investigation):
-        self.investigation = investigation
-    
+
     def update_place(self,place):
         self.base_urls = self.map_place(place)
 
@@ -106,6 +102,8 @@ class Scraper:
         
         
     def parse_lat_long(self,html):
+        if self.debug:
+            print "Processing address data and transforming it into latitude and longitude coordinates.."
         possible_locations = html.xpath('//div[@style="padding-left:2em;"]')
         potential_lat_longs = []
         for loc in possible_locations:
@@ -116,6 +114,7 @@ class Scraper:
                     else:
                         potential_lat_longs.append(addr_parser.parse(possible,place=self.place))
         lat_longs = [elem for elem in potential_lat_longs if elem != None]
+        if self.debug: print "sending lat/long data to the database for further visualization and inquiry.."
         for lat_long in lat_longs:
             addr_log = AddressLogger(lat=lat_long.latitude,long=lat_long.longitude)
             db.session.add(addr_log)
@@ -123,6 +122,8 @@ class Scraper:
         return lat_longs
 
     def parse_basic_info(self,response,html,values):
+        if self.debug:
+            print "Processing advertisement contents and pulling out title, text body, timestamp information, and image links.."
         values = {}
         values["title"] = html.xpath("//div[@id='postingTitle']/a/h1")[0].text_content()
         values["link"] = unidecode(response.url)
@@ -142,6 +143,7 @@ class Scraper:
         return values
 
     def parse_text_meta_data(self,html,values):
+        if self.debug: print "Processing textual information - language, polarity, subjectivity.."
         body_blob = TextBlob(values["text_body"])
         title_blob = TextBlob(values["title"])
         values["language"] = body_blob.detect_language() #requires the internet - makes use of google translate api
@@ -175,13 +177,17 @@ class Scraper:
                     except requests.exceptions.ConnectionError:
                         print "hitting connection error"
                         continue
-                    break
-                break
+        if self.debug:
+            print "Finished making requests.."
         return responses
 
     def scrape(self,links=[],scraping_ads=False):
         data = []
+        if self.debug:
+            print "Making requests to backpage.com.."
         responses = self.make_requests(links,scraping_ads)
+        if self.debug:
+            print "Processing responses.."
         for response in responses:
             values= {}
             text = response.text
@@ -192,9 +198,11 @@ class Scraper:
             values.update(self.parse_text_meta_data(html,values))
             text_body = values["text_body"]
             title = values["title"]
+            if self.debug: print "parsing out phone numbers..."
             values["phone_numbers"] = phone_parser.phone_number_parse(values)
             #is_trafficking is currently missing because it is being handled in investigate for some reason
             #this needs to be added to this method/made more readible
+            if self.debug: print "storing phone numbers.."
             for p_number in values['phone_numbers']:
                 ad_phone_number = PhoneNumberLogger(p_number)
                 db.session.add(ad_phone_number)
@@ -229,6 +237,7 @@ class Scraper:
         self.investigate(case_number) #this is an infinite loop, which I am okay with.
 
     def save(self,data,case_number=''):
+        if self.debug: "storing information in a database.."
         for values in data:
             bp_ad = BackpageLogger(
                 case_number=case_number,
@@ -250,12 +259,14 @@ class Scraper:
 
     #should this method remain?
     def initial_scrape(self,links):
+        if self.debug:
+            print "Starting initial scrape.."
         scrape_data = self.scrape(links=links)
         saved_data = self.save(scrape_data)
         return saved_data == scrape_data
 
 if __name__ == '__main__':
-    scraper = Scraper(place="New York City")
+    scraper = Scraper(place="New York City",debug=True)
     print scraper.initial_scrape(links=["http://newyork.backpage.com/FemaleEscorts/"])
     
     
