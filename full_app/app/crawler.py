@@ -14,7 +14,6 @@ from tools import * #ParsePhoneNumber, ParseAddress
 try:
     from app import db
 except ImportError:
-    #app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db" #os.environ["DATABASE_URL"]
     db = SQLAlchemy(app)
 
@@ -26,6 +25,7 @@ addr_parser = ParseAddress()
 class Scraper:
     def __init__(self,place=None,investigation=None):
         if place:
+            self.place = place
             self.base_urls = self.map_place(place)
         else:
             #consider getting rid of this
@@ -111,7 +111,10 @@ class Scraper:
         for loc in possible_locations:
             if "Location" in loc.text_content():
                 for possible in loc.text_content().split("Location:")[1].split(","):
-                    potential_lat_longs.append(addr_parser.parse(possible))
+                    if self.place:
+                        potential_lat_longs.append(addr_parser.parse(possible,place=self.place))
+                    else:
+                        potential_lat_longs.append(addr_parser.parse(possible,place=self.place))
         lat_longs = [elem for elem in potential_lat_longs if elem != None]
         for lat_long in lat_longs:
             addr_log = AddressLogger(lat=lat_long.latitude,long=lat_long.longitude)
@@ -119,10 +122,10 @@ class Scraper:
             db.session.commit()
         return lat_longs
 
-    def parse_basic_info(self,html,values):
+    def parse_basic_info(self,response,html,values):
         values = {}
         values["title"] = html.xpath("//div[@id='postingTitle']/a/h1")[0].text_content()
-        values["link"] = unidecode(r.url)
+        values["link"] = unidecode(response.url)
         # Stub - add this with textRank - values["new_keywords"] = []
         try:
             values["images"] = html.xpath("//img/@src")
@@ -165,7 +168,6 @@ class Scraper:
                 text = unidecode(r.text)
                 html = lxml.html.fromstring(text)
                 links = html.xpath("//div[contains(@class,'cat')]/a/@href")
-                print links
                 for link in links:
                     try:
                         responses.append(requests.get(link))
@@ -173,17 +175,20 @@ class Scraper:
                     except requests.exceptions.ConnectionError:
                         print "hitting connection error"
                         continue
+                    break
+                break
         return responses
 
     def scrape(self,links=[],scraping_ads=False):
+        data = []
         responses = self.make_requests(links,scraping_ads)
-        for r in responses:
+        for response in responses:
             values= {}
-            text = r.text
+            text = response.text
             html = lxml.html.fromstring(text)
             #getting address information from html page            
             lat_longs = self.parse_lat_long(html)
-            values.update(self.parse_basic_info(html,values))
+            values.update(self.parse_basic_info(response,html,values))
             values.update(self.parse_text_meta_data(html,values))
             text_body = values["text_body"]
             title = values["title"]
@@ -195,6 +200,7 @@ class Scraper:
                 db.session.add(ad_phone_number)
                 db.session.commit()
             data.append(values)
+        return data
     
     #need to add TfIdf
     #need to merge investigate and scrape methods or split this up further in someway, but currently this is bad and confusing
@@ -228,7 +234,6 @@ class Scraper:
                 case_number=case_number,
                 text_body=values["text_body"],
                 text_headline=values["title"],
-                investigation=investigation,
                 link=values['link'],
                 photos=json.dumps(values['images']),
                 language=values['language'],
@@ -245,14 +250,13 @@ class Scraper:
 
     #should this method remain?
     def initial_scrape(self,links):
-        responses = self.scrape(links=links)
-        print responses
-        data = self.save(responses)
-        return data
+        scrape_data = self.scrape(links=links)
+        saved_data = self.save(scrape_data)
+        return saved_data == scrape_data
 
 if __name__ == '__main__':
-    scraper = Scraper(place="new york")
-    data = scraper.initial_scrape(links=["http://newyork.backpage.com/FemaleEscorts/"])
-    print data
+    scraper = Scraper(place="New York City")
+    print scraper.initial_scrape(links=["http://newyork.backpage.com/FemaleEscorts/"])
+    
     
     

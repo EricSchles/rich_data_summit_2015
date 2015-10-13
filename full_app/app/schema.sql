@@ -25,7 +25,6 @@ drop table if exists backpage_logger;
      id integer primary key autoincrement,
      text_body text,
      text_headline text,
-     investigation text,
      link text,
      case_number text,
      timestamp text,

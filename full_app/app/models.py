@@ -1,3 +1,4 @@
+import datetime
 try:
     from app import db
 except ImportError:
@@ -6,9 +7,6 @@ except ImportError:
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db" #os.environ["DATABASE_URL"]
     db = SQLAlchemy(app)
-import datetime
-
-
 
 class IPLogger(db.Model):
     __tablename__ = 'ip_logger'
@@ -52,7 +50,6 @@ class BackpageLogger(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text_body = db.Column(db.String(4000))
     text_headline = db.Column(db.String(4000))
-    investigation = db.Column(db.String(1000))
     link = db.Column(db.String(10000))
     timestamp = db.Column(db.DateTime, default=datetime.datetime.now)
     case_number = db.Column(db.String(10000))
@@ -66,13 +63,12 @@ class BackpageLogger(db.Model):
     is_trafficking = db.Column(db.Boolean(False))
     phone_number = db.Column(db.String(400))
 
-    def __init__(self,text_body='',text_headline='',investigation='',
+    def __init__(self,text_body='',text_headline='',
                  link='',photos='',language='',polarity=0.0,translated_body='',
                  translated_title='',subjectivity=0.0,posted_at=datetime.datetime.now(),
                  is_trafficking=False,phone_number='',case_number=''):
         self.text_body = text_body
         self.text_headline = text_headline
-        self.investigation = investigation
         self.link = link
         self.photos = photos
         self.language = language

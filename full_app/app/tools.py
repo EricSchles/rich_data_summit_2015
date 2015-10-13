@@ -118,7 +118,7 @@ class ParseAddress:
                 return lat_long
             #If None, means no address was recovered.
         if addr_type == 'cross streets':
-            cross_addr = " and ".join(addr) + place 
+            cross_addr = " and ".join(dict_addr) + place 
             try:
                 lat_long = g_coder.geocode(cross_addr)
                 return lat_long
