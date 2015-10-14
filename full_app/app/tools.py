@@ -155,7 +155,7 @@ class ParseAddress:
                 if key in addr_dict.keys():
                     addr_dict[key] += " "+value
                 else:
-                    addr_dict[key] = values
+                    addr_dict[key] = value
             return addr_dict,"complete"
         else:
             possible_streets = []
