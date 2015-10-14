@@ -105,6 +105,10 @@ To understand impulse response we must first review time series analysis, in par
 
 If you don't know or don't remember time series analysis, please check out [this great introduction on MA and AR models](http://www.analyticsvidhya.com/blog/2015/03/introduction-auto-regression-moving-average-time-series/).
 
+[Timeseries Demo]()
 
+Check out: [statsmodels docs](http://statsmodels.sourceforge.net/devel/vector_ar.html) for more info
 
+If you want to help you can:
 
+[http://hackingagainstslavery.github.io](http://hackingagainstslavery.github.io)
