@@ -12,8 +12,12 @@ import pandas as pd
 import os
 from werkzeug import secure_filename
 from glob import glob
+from tools import Queue
+
 
 scraper = Scraper()
+queue = Queue()
+
 
 @app.route("/",methods=["GET","POST"])
 def index():
@@ -149,12 +153,16 @@ def investigator():
         investigate = Process(target=scraper.investigate,args=(case_number,))
         investigate.daemon=True
         investigate.start()
+        print "investigation started"
+        queue.put(investigate)
     return redirect(url_for("webscraping"))
 
 @app.route("/stop_investigation",methods=["GET","POST"])
 def stop_investigation():
     #semantic bug here, fix this later (create a thread pool)
+    investigate = queue.get()
     investigate.terminate()
+    print "investigation terminated successfully"
     return redirect(url_for("webscraping"))
 
 @app.route("/add",methods=["GET","POST"])

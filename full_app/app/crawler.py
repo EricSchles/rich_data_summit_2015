@@ -24,6 +24,8 @@ addr_parser = ParseAddress()
 #At present, this seems to work fine
 class Scraper:
     def __init__(self,place=None,debug=False):
+        if type(place) == type(str()):
+            place = place.replace(",","").replace(".","").replace("-","")
         self.debug=debug
         if place:
             self.place = place
@@ -40,9 +42,15 @@ class Scraper:
                 "http://newyork.backpage.com/Datelines/",
                 "http://newyork.backpage.com/AdultJobs/"
             ]
+            self.place = place
 
     def update_place(self,place):
+        if type(place) == type(str()):
+            place = place.replace(",","").replace(".","").replace("-","")
         self.base_urls = self.map_place(place)
+
+    def update_investigation(self,urls):
+        self.scrape(links=urls,scraping_ads=True)
 
     #ToDo, iterate to pages further back in time.
     #fine for now
@@ -112,7 +120,7 @@ class Scraper:
                     if self.place:
                         potential_lat_longs.append(addr_parser.parse(possible,place=self.place))
                     else:
-                        potential_lat_longs.append(addr_parser.parse(possible,place=self.place))
+                        potential_lat_longs.append(addr_parser.parse(possible))
         lat_longs = [elem for elem in potential_lat_longs if elem != None]
         if self.debug: print "sending lat/long data to the database for further visualization and inquiry.."
         for lat_long in lat_longs:

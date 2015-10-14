@@ -17,6 +17,19 @@ tagger = Tagger('/opt/stanford-ner-2014-08-27/classifiers/english.all.3class.dis
 
 addr_formatter = StreetAddressFormatter()
 
+#a queue for storing processes
+class Queue:
+    def __init__(self):
+        self.internal_list = []
+    def put(self,data):
+        self.internal_list.append(data)
+    def get(self):
+        if self.internal_list != []:
+            data = self.internal_list[0]
+            del self.internal_list[0]
+            return data
+        else:
+            return None
 #Consider having a generalized parse method for each of these objects
 class ParsePhoneNumber:
         
